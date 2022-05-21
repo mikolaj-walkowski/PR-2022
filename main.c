@@ -26,6 +26,11 @@ typedef struct message
     int id;
 } Message;
 
+int msg_size()
+{
+    return sizeof(Message) / sizeof(int);
+}
+
 // Funkcje bardziej pod stack niż vector
 typedef struct vec
 {
@@ -33,11 +38,6 @@ typedef struct vec
     int MAX;
     int size;
 } Vec;
-
-int msg_size()
-{
-    return sizeof(Message) / sizeof(int);
-}
 
 void vec_init(Vec *vec)
 {
@@ -48,19 +48,19 @@ void vec_init(Vec *vec)
 
 void vec_push(Vec *id, int el)
 {
-    if (++(id->size) > id->MAX)
+    if (id->size ==  id->MAX)
     {
         id->MAX *= 2;
         id->data = realloc(id->data, id->MAX * sizeof(int));
     }
-    id->data[id->size - 1] = el;
+    id->data[id->size++] = el;
 }
 
 int vec_pop(Vec *id)
 {
     if (id->size == 0)
         return -1;
-    return id->data[id->size--];
+    return id->data[--id->size];
 }
 
 void vec_destroy(Vec *id)
@@ -134,15 +134,15 @@ void teleport(int iClock, int size, int rank, int reqId)
         // TODO wait
     }
 
-    int T_pop = vec_pop(&T);
-    while (T_pop != -1)
+    
+    while (T.size>0)
     {
+        int rec = vec_pop(&T);
         Message msg;
-        MPI_Status status;
         msg.clock = iClock;
         msg.id = vec_pop(&T);
-        MPI_Send(&msg, msg_size(), MPI_INT, T_pop, LZ_RES, MPI_COMM_WORLD);
-        T_pop = vec_pop(&T);
+
+        MPI_Send(&msg, msg_size(), MPI_INT, rec, LZ_RES, MPI_COMM_WORLD);
     }
     vec_destroy(&T);
 }
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
             int flag;
             MPI_Status status;
             MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-            
+
             if (flag == 1)
             {
                 Message msg;
@@ -296,15 +296,16 @@ int main(int argc, char **argv)
         // Wyjście z TP
         printf("%d Wyjście z TP\n",rank);
 
-        int L_pop = vec_pop(&L);
-        while (L_pop != -1)
+        
+        while (L.size>0)
         {
+            int rec = vec_pop(&L);
+
             Message msg;
-            MPI_Status status;
             msg.clock = lClk;
             msg.id = vec_pop(&L);
-            MPI_Send(&msg, msg_size(), MPI_INT, L_pop, LZ_RES, MPI_COMM_WORLD);
-            L_pop = vec_pop(&L);
+
+            MPI_Send(&msg, msg_size(), MPI_INT, rec, LZ_RES, MPI_COMM_WORLD);
         }
 
          printf("%d Zwolnienie LZ\n",rank);
