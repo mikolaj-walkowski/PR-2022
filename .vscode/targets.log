@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Sat May 21 18:15:30 2022
+# Make data base, printed on Sat May 21 21:03:35 2022
 
 # Variables
 
@@ -87,7 +87,7 @@ LESSCLOSE = /usr/bin/lesspipe %s %s
 # environment
 LOGNAME = virtualspook
 # environment
-APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
 # environment
 NVM_CD_FLAGS = 
 # environment
@@ -171,9 +171,9 @@ MOTD_SHOWN = update-motd
 
 # Directories
 
-# . (device 2064, inode 11216): 7 files, no impossibilities.
+# . (device 2064, inode 11216): 8 files, no impossibilities.
 
-# 7 files, no impossibilities in 1 directories.
+# 8 files, no impossibilities in 1 directories.
 
 # Implicit Rules
 
@@ -191,7 +191,7 @@ all:
 # Not a target:
 makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-05-18 10:28:24.306136693
+#  Last modified 2022-05-21 21:03:14.085895866
 #  File has been updated.
 #  Successfully updated.
 
@@ -213,7 +213,7 @@ run: build
 #  Modification time never checked.
 #  File has not been updated.
 #  recipe to execute (from 'makefile', line 4):
-	mpirun --oversubscribe -np 32 --map-by node main
+	mpirun --oversubscribe -np 10 --map-by node main
 	rm main
 
 # files hash-table stats:
@@ -224,12 +224,12 @@ run: build
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 14 / storage = 109 B / avg = 7 B
-# current buf: size = 8162 B / used = 109 B / count = 14 / avg = 7 B
+# strcache buffers: 1 (0) / strings = 15 / storage = 114 B / avg = 7 B
+# current buf: size = 8162 B / used = 114 B / count = 15 / avg = 7 B
 
-# strcache performance: lookups = 21 / hit rate = 33%
+# strcache performance: lookups = 22 / hit rate = 31%
 # hash-table stats:
-# Load=14/8192=0%, Rehash=0, Collisions=1/21=5%
-# Finished Make data base on Sat May 21 18:15:30 2022
+# Load=15/8192=0%, Rehash=0, Collisions=1/22=5%
+# Finished Make data base on Sat May 21 21:03:35 2022
 
  
