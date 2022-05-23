@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define L_SPACE 10
-#define T_SPACE 5
+#define L_SPACE 20
+#define T_SPACE 10
 
 #define WAIT 5
 
 #define MSG_CLK 0
 #define MSG_ID 1
-
+#define MAXSIZE 10000
 enum reqTypes
 {
     LZ_REQ = 0,
@@ -19,7 +19,9 @@ enum reqTypes
     TP_RES = 3
 };
 
-// !!! tylko pola typu int !!!
+int Laccept[MAXSIZE];
+int Taccept[MAXSIZE];
+
 typedef struct message
 {
     int clock;
@@ -31,7 +33,6 @@ int msg_size()
     return sizeof(Message) / sizeof(int);
 }
 
-// Funkcje bardziej pod stack niż vector
 typedef struct vec
 {
     int *data;
@@ -48,7 +49,7 @@ void vec_init(Vec *vec)
 
 void vec_push(Vec *id, int el)
 {
-    if (id->size ==  id->MAX)
+    if (id->size == id->MAX)
     {
         id->MAX *= 2;
         id->data = realloc(id->data, id->MAX * sizeof(int));
@@ -81,6 +82,11 @@ void sendAll(int rank, int size, Message msg, int type)
 
 void teleport(int iClock, int size, int rank, int reqId)
 {
+    for (int i = 0; i < MAXSIZE; ++i)
+    {
+        Taccept[i] = 0;
+    }
+
     Message req;
     req.clock = iClock;
     req.id = reqId;
@@ -108,9 +114,13 @@ void teleport(int iClock, int size, int rank, int reqId)
                 int otherId = status.MPI_SOURCE, otherCL = msg.clock;
                 if (iClock < otherCL || (iClock == otherCL && otherId > rank))
                 {
-                    vec_push(&T, msg.id);
-                    vec_push(&T, otherId);
-                    ResNUM++;
+                    if (Taccept[otherId] == 0)
+                    {
+                        vec_push(&T, msg.id);
+                        vec_push(&T, otherId);
+                        ResNUM++;
+                        Taccept[otherId] = 1;
+                    }
                 }
                 break;
             }
@@ -118,7 +128,11 @@ void teleport(int iClock, int size, int rank, int reqId)
             {
                 if (reqId == msg.id)
                 {
-                    ResNUM++;
+                    if (Taccept[status.MPI_SOURCE] == 0)
+                    {
+                        ResNUM++;
+                        Taccept[status.MPI_SOURCE] = 1;
+                    }
                 }
                 break;
             }
@@ -128,14 +142,14 @@ void teleport(int iClock, int size, int rank, int reqId)
 
     long start = time(0);
     long wait_T = (rand() % WAIT) + 1;
-    printf("%d Zgoda na TP\n",rank);
+
+    printf("%d Zgoda na TP\n", rank);
     while (start + wait_T >= time(0))
     {
         // TODO wait
     }
 
-    
-    while (T.size>0)
+    while (T.size > 0)
     {
         int rec = vec_pop(&T);
         Message msg;
@@ -155,7 +169,7 @@ int main(int argc, char **argv)
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
-    srand(rank*100);
+    srand(rank * 100);
     Vec L;
     vec_init(&L);
 
@@ -163,8 +177,7 @@ int main(int argc, char **argv)
     {
         long start = time(0);
         long wait_T = (rand() % WAIT) + 1;
-        //  printf("%d %d \n",start,wait_T);
-        printf("%d Posterunek\n",rank);
+        printf("%d Posterunek\n", rank);
 
         while (start + wait_T >= time(0))
         {
@@ -192,14 +205,21 @@ int main(int argc, char **argv)
                     MPI_Send(&msg, msg_size(), MPI_INT, status.MPI_SOURCE, type, MPI_COMM_WORLD);
                     break;
                 }
+                default:
+                    break;
                 }
             }
         }
 
         lClk++;
 
-        printf("%d Chce być w lazarecie\n",rank);
-        
+        printf("%d Chce być w lazarecie\n", rank);
+
+        for (int i = 0; i < MAXSIZE; ++i)
+        {
+            Laccept[i] = 0;
+        }
+
         Message tmp;
         tmp.clock = lClk;
         tmp.id = ++reqID;
@@ -225,10 +245,13 @@ int main(int argc, char **argv)
                     int otherId = status.MPI_SOURCE, otherCL = msg.clock;
                     if (lClk < otherCL || (lClk == otherCL && otherId > rank))
                     {
-                        // Ogólnie mówiąc rozwiązanie dosyć słabe powinniśmy w vec przechowywać struct-y ale mi się już nie chce
-                        vec_push(&L, msg.id);
-                        vec_push(&L, otherId);
-                        ResNUM++;
+                        if (Laccept[otherId] == 0)
+                        {
+                            Laccept[otherId] = 1;
+                            vec_push(&L, msg.id);
+                            vec_push(&L, otherId);
+                            ResNUM++;
+                        }
                     }
                     break;
                 }
@@ -241,24 +264,29 @@ int main(int argc, char **argv)
                 case LZ_RES:
                 {
                     if (reqID == msg.id)
-                        ResNUM++;
+                    {
+                        if (Laccept[status.MPI_SOURCE] == 0)
+                        {
+                            ResNUM++;
+                            Laccept[status.MPI_SOURCE] = 1;
+                        }
+                    }
                     break;
                 }
                 }
             }
         }
         // Zgoda na Lazaret użycie TP
-        printf("%d Zgoda na Lazaret użycie TP\n",rank);
+        printf("%d Zgoda na Lazaret | Chcę użyć TP\n", rank);
         lClk++;
         ++reqID;
         teleport(lClk, size, rank, reqID);
 
         // Wyjście z TP
-        printf("%d Wyjście z TP\n",rank);
+        printf("%d Wyjście z TP\n", rank);
 
         // Jestem w Lazarecie
-
-        printf("%d Jestem w Lazarecie\n",rank);
+        printf("%d Jestem w Lazarecie\n", rank);
 
         start = time(0);
         wait_T = (rand() % WAIT) + 1;
@@ -285,19 +313,18 @@ int main(int argc, char **argv)
                 }
             }
         }
-        
+
         // Wyjście z lazaretu TP
-        printf("%d Wyjście z lazaretu użycie TP\n",rank);
+        printf("%d Wyjście z lazaretu użycie TP\n", rank);
 
         lClk++;
         ++reqID;
         teleport(lClk, size, rank, reqID);
 
         // Wyjście z TP
-        printf("%d Wyjście z TP\n",rank);
+        printf("%d Wyjście z TP\n", rank);
 
-        
-        while (L.size>0)
+        while (L.size > 0)
         {
             int rec = vec_pop(&L);
 
@@ -307,8 +334,7 @@ int main(int argc, char **argv)
 
             MPI_Send(&msg, msg_size(), MPI_INT, rec, LZ_RES, MPI_COMM_WORLD);
         }
-
-         printf("%d Zwolnienie LZ\n",rank);
+        printf("%d Zwolnienie LZ\n", rank);
         // Chce być na posterunku
     }
 
