@@ -3,8 +3,8 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define L_SPACE 20
-#define T_SPACE 10
+#define L_SPACE 6
+#define T_SPACE 3
 
 #define WAIT 5
 
@@ -145,9 +145,7 @@ void teleport(int iClock, int size, int rank, int reqId)
 
     printf("%d Zgoda na TP\n", rank);
     while (start + wait_T >= time(0))
-    {
-        // TODO wait
-    }
+        ;
 
     while (T.size > 0)
     {
