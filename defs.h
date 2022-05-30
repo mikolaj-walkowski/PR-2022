@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 #define KNRM  "\x1B[0m"
 #define KRED  "\x1B[31m"
@@ -37,6 +38,7 @@ const char* tagNames[]= {
     "TP_REQ",
     "TP_RES"
 };
+int size; 
 
 int Laccept[MAXSIZE];
 int Taccept[MAXSIZE];

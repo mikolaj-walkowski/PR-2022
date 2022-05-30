@@ -1,10 +1,29 @@
 #include "defs.h"
 
 void DBGprint(Message req, Message res,int rank, MPI_Status s1, int tag2, char* comment, char* color){
-    printf("%sComment: %s %s\n\tProcess: %d, dostał wiadomość od: %d , Wiadomość odebrana [%s]: %d , %d. Wiadomość wysłana[%s]: %d, %d.\n",color,comment, RESET,rank, s1.MPI_SOURCE,tagNames[s1.MPI_TAG], req.id,req.clock, tagNames[tag2], res.id,res.clock);
+    printf("[%d]: %s%s%s from: %d, msg [%s]: %d , %d Response msg [%s]: %d, %d.\n",rank,color,comment,RESET,s1.MPI_SOURCE,tagNames[s1.MPI_TAG],req.id,req.clock, tagNames[tag2], res.id,res.clock);
 }
 
-void teleport(int iClock, int size, int rank, int reqId)
+void DBGprintState(int* a,int rank){
+   char buff[1000];
+    sprintf(buff,"[%d]: ", rank);
+   int offset = strlen(buff);
+    for (int i = 0; i < size; i++)
+    {
+        char * color = KGRN;
+        if (a[i]==0)
+        {
+            color = KRED;
+        }
+        sprintf(buff+ offset,"%s[%d]%s,", color, i,RESET);
+        offset = strlen(buff);
+    }
+    buff[offset] = '\n';
+    buff[offset+1] = '\0';
+    printf(buff);
+}
+
+void teleport(int iClock, int rank, int reqId)
 {
     for (int i = 0; i < MAXSIZE; ++i)
     {
@@ -57,17 +76,20 @@ void teleport(int iClock, int size, int rank, int reqId)
             }
             break;
         }
+        default:{
+            break;
+        } 
         }
         DBGprint(msg,msg,rank,status,type,"TP req Region",KBLU);
-
+        DBGprintState(Taccept, rank);
     }
+    printf("[%d]: %sEXITED TP REQ with ResNUM: %d====%s\n",rank,KRED,ResNUM,RESET);
 
     long start = time(0);
     long wait_T = (rand() % WAIT) + 1;
 
-    printf("[%d]: %s TP Region ====%s\n",rank,KYEL,RESET);
-    while (start + wait_T >= time(0))
-        ;
+    printf("[%d]: %sTP Region ====%s\n",rank,KYEL,RESET);
+    while (start + wait_T >= time(0));
 
     while (T.size > 0)
     {
@@ -76,14 +98,14 @@ void teleport(int iClock, int size, int rank, int reqId)
         msg.clock = iClock;
         msg.id = vec_pop(&T);
 
-        MPI_Send(&msg, sizeof(Message), MPI_BYTE, rec, LZ_RES, MPI_COMM_WORLD);
+        MPI_Send(&msg, sizeof(Message), MPI_BYTE, rec, TP_RES, MPI_COMM_WORLD);
     }
     vec_destroy(&T);
 }
 
 int main(int argc, char **argv)
 {
-    int rank, size;
+    int rank;
     int lClk = 0;
     int reqID = 0;
     MPI_Init(&argc, &argv);
@@ -97,7 +119,7 @@ int main(int argc, char **argv)
     {
         long start = time(0);
         long wait_T = (rand() % WAIT) + 1;
-        printf("%s %d POSTERUNEK ====== %s\n", KYEL, rank,RESET);
+        printf("[%d]:%s POSTERUNEK ====== %s\n", rank,KYEL,RESET);
 
         while (start + wait_T >= time(0))
         {
@@ -134,7 +156,7 @@ int main(int argc, char **argv)
 
         lClk++;
 
-         printf("[%d]: %s LAZARET REQ ====%s\n",rank,KYEL,RESET);
+         printf("[%d]: %sLAZARET REQ ====%s\n",rank,KYEL,RESET);
 
         for (int i = 0; i < MAXSIZE; ++i)
         {
@@ -195,15 +217,18 @@ int main(int argc, char **argv)
                 }
             }
             DBGprint(msg,msg,rank,status,type,"Lazaret Request Region",KGRN);
+            DBGprintState(Laccept, rank);
         }
+        printf("[%d]: %sEXITED LAZARET REQ with ResNUM: %d====%s\n",rank,KRED,ResNUM,RESET);
+        
         // Zgoda na Lazaret użycie TP
-        printf("[%d]: %s 1ST TP REQ ====%s\n",rank,KYEL,RESET);
+        printf("[%d]: %s1ST TP REQ ====%s\n",rank,KYEL,RESET);
         lClk++;
         ++reqID;
-        teleport(lClk, size, rank, reqID);
+        teleport(lClk, rank, reqID);
 
         // Jestem w Lazarecie
-        printf("[%d]: %s LAZARET ====%s\n",rank,KYEL,RESET);
+        printf("[%d]: %sLAZARET ====%s\n",rank,KYEL,RESET);
 
         start = time(0);
         wait_T = (rand() % WAIT) + 1;
@@ -233,11 +258,11 @@ int main(int argc, char **argv)
         }
 
         // Wyjście z lazaretu TP
-        printf("[%d]: %s 2ST TP REQ ====%s\n",rank,KYEL,RESET);
+        printf("[%d]: %s2ST TP REQ ====%s\n",rank,KYEL,RESET);
 
         lClk++;
         ++reqID;
-        teleport(lClk, size, rank, reqID);
+        teleport(lClk, rank, reqID);
 
         while (L.size > 0)
         {
