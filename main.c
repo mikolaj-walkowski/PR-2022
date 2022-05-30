@@ -1,83 +1,7 @@
-#include <mpi.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#include "defs.h"
 
-#define L_SPACE 6
-#define T_SPACE 3
-
-#define WAIT 5
-
-#define MSG_CLK 0
-#define MSG_ID 1
-#define MAXSIZE 10000
-enum reqTypes
-{
-    LZ_REQ = 0,
-    LZ_RES = 1,
-    TP_REQ = 2,
-    TP_RES = 3
-};
-
-int Laccept[MAXSIZE];
-int Taccept[MAXSIZE];
-
-typedef struct message
-{
-    int clock;
-    int id;
-} Message;
-
-int msg_size()
-{
-    return sizeof(Message) / sizeof(int);
-}
-
-typedef struct vec
-{
-    int *data;
-    int MAX;
-    int size;
-} Vec;
-
-void vec_init(Vec *vec)
-{
-    vec->MAX = 100;
-    vec->size = 0;
-    vec->data = malloc(sizeof(int) * vec->MAX);
-}
-
-void vec_push(Vec *id, int el)
-{
-    if (id->size == id->MAX)
-    {
-        id->MAX *= 2;
-        id->data = realloc(id->data, id->MAX * sizeof(int));
-    }
-    id->data[id->size++] = el;
-}
-
-int vec_pop(Vec *id)
-{
-    if (id->size == 0)
-        return -1;
-    return id->data[--id->size];
-}
-
-void vec_destroy(Vec *id)
-{
-    free(id->data);
-}
-
-void sendAll(int rank, int size, Message msg, int type)
-{
-    for (int i = 0; i < size; i++)
-    {
-        if (i != rank)
-        {
-            MPI_Send(&msg, msg_size(), MPI_INT, i, type, MPI_COMM_WORLD);
-        }
-    }
+void DBGprint(Message req, Message res,int rank, MPI_Status s1, int tag2, char* comment, char* color){
+    printf("%sComment: %s %s\n\tProcess: %d, dostał wiadomość od: %d , Wiadomość odebrana [tag: %d]: %d , %d. Wiadomość wysłana[tag: %d]: %d, %d.\n",color,comment, RESET,rank, s1.MPI_SOURCE, s1.MPI_TAG, req.id,req.clock, tag2, res.id,res.clock);
 }
 
 void teleport(int iClock, int size, int rank, int reqId)
@@ -99,45 +23,44 @@ void teleport(int iClock, int size, int rank, int reqId)
 
     while (!(size - 1 - ResNUM < T_SPACE))
     {
-        int flag;
         MPI_Status status;
-
-        MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-        if (flag == 1)
+        Message msg;
+        MPI_Recv(&msg, sizeof(Message), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        int type = 0;
+        switch (status.MPI_TAG)
         {
-            Message msg;
-            MPI_Recv(&msg, msg_size(), MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-            switch (status.MPI_TAG)
+        case TP_REQ:
+        {
+            type = TP_REQ;
+            int otherId = status.MPI_SOURCE, otherCL = msg.clock;
+            if (iClock < otherCL || (iClock == otherCL && otherId > rank))
             {
-            case TP_REQ:
-            {
-                int otherId = status.MPI_SOURCE, otherCL = msg.clock;
-                if (iClock < otherCL || (iClock == otherCL && otherId > rank))
+                if (Taccept[otherId] == 0)
                 {
-                    if (Taccept[otherId] == 0)
-                    {
-                        vec_push(&T, msg.id);
-                        vec_push(&T, otherId);
-                        ResNUM++;
-                        Taccept[otherId] = 1;
-                    }
+                    vec_push(&T, msg.id);
+                    vec_push(&T, otherId);
+                    ResNUM++;
+                    Taccept[otherId] = 1;
                 }
-                break;
             }
-            case TP_RES:
-            {
-                if (reqId == msg.id)
-                {
-                    if (Taccept[status.MPI_SOURCE] == 0)
-                    {
-                        ResNUM++;
-                        Taccept[status.MPI_SOURCE] = 1;
-                    }
-                }
-                break;
-            }
-            }
+            break;
         }
+        case TP_RES:
+        {
+            type = TP_RES;
+            if (reqId == msg.id)
+            {
+                if (Taccept[status.MPI_SOURCE] == 0)
+                {
+                    ResNUM++;
+                    Taccept[status.MPI_SOURCE] = 1;
+                }
+            }
+            break;
+        }
+        DBGprint(msg,msg,rank,status,type,"TP req Region",KBLU);
+        }
+
     }
 
     long start = time(0);
@@ -154,7 +77,7 @@ void teleport(int iClock, int size, int rank, int reqId)
         msg.clock = iClock;
         msg.id = vec_pop(&T);
 
-        MPI_Send(&msg, msg_size(), MPI_INT, rec, LZ_RES, MPI_COMM_WORLD);
+        MPI_Send(&msg, sizeof(Message), MPI_BYTE, rec, LZ_RES, MPI_COMM_WORLD);
     }
     vec_destroy(&T);
 }
@@ -187,25 +110,26 @@ int main(int argc, char **argv)
             {
                 Message msg;
                 int type;
-                MPI_Recv(&msg, msg_size(), MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                MPI_Recv(&msg, sizeof(Message), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                 msg.clock = lClk;
                 switch (status.MPI_TAG)
                 {
                 case LZ_REQ:
                 {
                     type = LZ_RES;
-                    MPI_Send(&msg, msg_size(), MPI_INT, status.MPI_SOURCE, type, MPI_COMM_WORLD);
+                    MPI_Send(&msg, sizeof(Message), MPI_BYTE, status.MPI_SOURCE, type, MPI_COMM_WORLD);
                     break;
                 }
                 case TP_REQ:
                 {
                     type = TP_RES;
-                    MPI_Send(&msg, msg_size(), MPI_INT, status.MPI_SOURCE, type, MPI_COMM_WORLD);
+                    MPI_Send(&msg,sizeof(Message), MPI_BYTE, status.MPI_SOURCE, type, MPI_COMM_WORLD);
                     break;
                 }
                 default:
                     break;
                 }
+                DBGprint(msg,msg,rank,status,type,"Post Region",KMAG);
             }
         }
 
@@ -216,6 +140,7 @@ int main(int argc, char **argv)
         for (int i = 0; i < MAXSIZE; ++i)
         {
             Laccept[i] = 0;
+            //TODO debug
         }
 
         Message tmp;
@@ -227,19 +152,15 @@ int main(int argc, char **argv)
         int ResNUM = 0;
         while (!(size - 1 - ResNUM < L_SPACE))
         {
-            int flag;
             MPI_Status status;
-            MPI_Iprobe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &flag, &status);
-
-            if (flag == 1)
+            Message msg;
+            MPI_Recv(&msg, sizeof(Message), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            int type =0;
+            switch (status.MPI_TAG)
             {
-                Message msg;
-                MPI_Recv(&msg, msg_size(), MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
-                switch (status.MPI_TAG)
-                {
                 case LZ_REQ:
                 {
+                    type = LZ_REQ;
                     int otherId = status.MPI_SOURCE, otherCL = msg.clock;
                     if (lClk < otherCL || (lClk == otherCL && otherId > rank))
                     {
@@ -255,12 +176,14 @@ int main(int argc, char **argv)
                 }
                 case TP_REQ:
                 {
+                    type = TP_REQ;
                     msg.clock = lClk;
-                    MPI_Send(&msg, msg_size(), MPI_INT, status.MPI_SOURCE, TP_RES, MPI_COMM_WORLD);
+                    MPI_Send(&msg, sizeof(Message), MPI_BYTE, status.MPI_SOURCE, TP_RES, MPI_COMM_WORLD);
                     break;
                 }
                 case LZ_RES:
                 {
+                    type = LZ_RES;
                     if (reqID == msg.id)
                     {
                         if (Laccept[status.MPI_SOURCE] == 0)
@@ -271,8 +194,8 @@ int main(int argc, char **argv)
                     }
                     break;
                 }
-                }
             }
+            DBGprint(msg,msg,rank,status,type,"Lazaret Request Region",KGRN);
         }
         // Zgoda na Lazaret użycie TP
         printf("%d Zgoda na Lazaret | Chcę użyć TP\n", rank);
@@ -298,17 +221,18 @@ int main(int argc, char **argv)
             {
                 Message msg;
                 int type;
-                MPI_Recv(&msg, msg_size(), MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+                MPI_Recv(&msg, sizeof(Message), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
                 msg.clock = lClk;
                 switch (status.MPI_TAG)
                 {
                 case TP_REQ:
                 {
                     type = TP_RES;
-                    MPI_Send(&msg, msg_size(), MPI_INT, status.MPI_SOURCE, type, MPI_COMM_WORLD);
+                    MPI_Send(&msg, sizeof(Message), MPI_BYTE, status.MPI_SOURCE, type, MPI_COMM_WORLD);
                     break;
                 }
                 }
+                DBGprint(msg,msg,rank,status,type,"Healing Region", KRED);
             }
         }
 
@@ -330,7 +254,7 @@ int main(int argc, char **argv)
             msg.clock = lClk;
             msg.id = vec_pop(&L);
 
-            MPI_Send(&msg, msg_size(), MPI_INT, rec, LZ_RES, MPI_COMM_WORLD);
+            MPI_Send(&msg, sizeof(Message), MPI_BYTE, rec, LZ_RES, MPI_COMM_WORLD);
         }
         printf("%d Zwolnienie LZ\n", rank);
         // Chce być na posterunku
