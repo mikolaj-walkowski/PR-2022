@@ -15,8 +15,8 @@
 #define KWHT  "\x1B[37m"
 #define RESET   "\033[0m"
 
-#define L_SPACE 6
-#define T_SPACE 3
+#define L_SPACE 2 
+#define T_SPACE 1
 
 #define WAIT 5
 
@@ -24,10 +24,18 @@
 
 enum reqTypes
 {
-    LZ_REQ = 0,
-    LZ_RES = 1,
-    TP_REQ = 2,
-    TP_RES = 3
+    LZ_REQ = 1,
+    LZ_RES = 2,
+    TP_REQ = 3,
+    TP_RES = 4
+};
+
+const char* tagNames[]= {
+    "NULL",
+    "LZ_REQ",
+    "LZ_RES",
+    "TP_REQ",
+    "TP_RES"
 };
 
 int Laccept[MAXSIZE];
