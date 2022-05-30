@@ -20,6 +20,7 @@
 #define T_SPACE 1
 
 #define WAIT 5
+#define WAIT_MIN 1
 
 #define MAXSIZE 10000
 
@@ -39,6 +40,8 @@ const char* tagNames[]= {
     "TP_RES"
 };
 int size; 
+int lClk = 0;
+int reqID = 0;
 
 int Laccept[MAXSIZE];
 int Taccept[MAXSIZE];
@@ -94,4 +97,8 @@ void sendAll(int rank, int size, Message msg, int type)
             MPI_Send(&msg, sizeof(Message), MPI_BYTE, i, type, MPI_COMM_WORLD);
         }
     }
+}
+
+int max(int a, int b){
+    return a>b? a:b;
 }
