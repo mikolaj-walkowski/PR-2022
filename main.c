@@ -24,11 +24,11 @@ void DBGprint(Message *req, Message *res,int rank, MPI_Status s1, int tag2, char
         table = DBGprintState(a);
     }
     
-    printf("[%d]: %s%s%s from: %d, msg [%s]: %d, %d Response msg [%s]: %d, %d Table state: %s\n",
-    rank, color, comment, RESET,
-    s1.MPI_SOURCE, tagNames[s1.MPI_TAG], req->id, req->clock,
-    tagNames[tag2], res->id, res->clock,
-    table);
+    // printf("[%d]: %s%s%s from: %d, msg [%s]: %d, %d Response msg [%s]: %d, %d Table state: %s\n",
+    // rank, color, comment, RESET,
+    // s1.MPI_SOURCE, tagNames[s1.MPI_TAG], req->id, req->clock,
+    // tagNames[tag2], res->id, res->clock,
+    // table);
     
     if (a != NULL)
     {
@@ -37,8 +37,8 @@ void DBGprint(Message *req, Message *res,int rank, MPI_Status s1, int tag2, char
 }
 
 void DBGprintRes(Message* msg,int rank, int target, int tag, char* comment, char* color){
-    printf("[%d]: %s%s%s Sending to %d, msg [%s]: %d, %d\n",
-    rank,color,comment,RESET,target,tagNames[tag],msg->id,msg->clock);
+    // printf("[%d]: %s%s%s Sending to %d, msg [%s]: %d, %d\n",
+    // rank,color,comment,RESET,target,tagNames[tag],msg->id,msg->clock);
 }
 
 void teleport(int rank)
@@ -63,6 +63,7 @@ void teleport(int rank)
         MPI_Status status;
         Message msg;
         MPI_Recv(&msg, sizeof(Message), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        lClk = max(lClk, msg.clock)+1;
         int type = 0;
         switch (status.MPI_TAG)
         {
@@ -178,13 +179,13 @@ int main(int argc, char **argv)
         for (int i = 0; i < MAXSIZE; ++i)
         {
             Laccept[i] = 0;
-            //TODO debug
         }
 
         Message tmp;
 
         tmp.clock = lClk;
         tmp.id = lClk;
+        reqID = lClk;
 
         sendAll(rank, size, tmp, LZ_REQ);
 
@@ -194,6 +195,7 @@ int main(int argc, char **argv)
             MPI_Status status;
             Message msg;
             MPI_Recv(&msg, sizeof(Message), MPI_BYTE, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+            lClk = max(lClk, msg.clock)+1;
             int type =0;
             switch (status.MPI_TAG)
             {
@@ -234,7 +236,7 @@ int main(int argc, char **argv)
                     break;
                 }
             }
-            DBGprint(&msg,&msg,rank,status,type,"Lazaret Request Region",KGRN,NULL);
+            DBGprint(&msg,&msg,rank,status,type,"Lazaret Request Region",KGRN,Laccept);
         }
         printf("[%d]: %sEXITED LAZARET REQ with ResNUM: %d====%s\n",rank,KRED,ResNUM,RESET);
         
@@ -243,6 +245,7 @@ int main(int argc, char **argv)
         lClk++;
         reqID = lClk;
         teleport(rank);
+        printf("[%d]: %s1ST TP EXIT ====%s\n",rank,KYEL,RESET);
 
         // Jestem w Lazarecie
         printf("[%d]: %sLAZARET ====%s\n",rank,KYEL,RESET);
@@ -281,7 +284,7 @@ int main(int argc, char **argv)
         lClk++;
         reqID = lClk;
         teleport(rank);
-
+        printf("[%d]: %s2ST TP EXIT ====%s\n",rank,KYEL,RESET);
         while (L.size > 0)
         {
             int rec = vec_pop(&L);

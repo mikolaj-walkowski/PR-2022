@@ -19,8 +19,8 @@
 #define L_SPACE 2 
 #define T_SPACE 1
 
-#define WAIT 5
-#define WAIT_MIN 1
+#define WAIT 1
+#define WAIT_MIN 0
 
 #define MAXSIZE 10000
 
